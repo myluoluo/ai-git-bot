@@ -76,6 +76,7 @@ public final class AgentLoop {
         List<PendingMessage> pending = new ArrayList<>();
         pending.add(new PendingMessage("user", initialUserMessage));
         String currentMessage = initialUserMessage;
+        AiMessage closingReminder = null;
 
         ToolingMode resolvedMode = resolveMode(strategy);
         ctx.setToolingMode(resolvedMode);
@@ -85,6 +86,14 @@ public final class AgentLoop {
                 ctx.issueNumber(), providerTag, resolvedMode, tools.size());
 
         for (int round = 1; round <= budget.maxRounds(); round++) {
+            String reminder = strategy.roundBudgetReminder(budget.maxRounds() - round + 1);
+            if (reminder != null && !reminder.isBlank()) {
+                closingReminder = AiMessage.builder().role("user").content(reminder).build();
+                pending.add(new PendingMessage("user", reminder));
+            }
+            if (closingReminder != null && !history.contains(closingReminder)) {
+                history.add(closingReminder);
+            }
             if (ctx.progressConsumer() != null) {
                 ctx.progressConsumer().accept("Reviewing round " + round + " (waiting for model)");
             }
@@ -100,7 +109,7 @@ public final class AgentLoop {
             long started = System.nanoTime();
             ChatTurn turn;
             try {
-                turn = callAiWithRetry(history, currentMessage, tools, systemPrompt, round);
+                turn = callAiWithRetry(history, currentMessage, tools, systemPrompt, round, closingReminder);
             } finally {
                 AgentMetricsHolder.recordLatency(modeTag(resolvedMode), providerTag,
                         Duration.ofNanos(System.nanoTime() - started));
@@ -357,7 +366,8 @@ public final class AgentLoop {
      * @throws RuntimeException if the failure is not retryable or the retry fails
      */
     private ChatTurn callAiWithRetry(List<AiMessage> history, String currentMessage,
-                                     List<ToolDescriptor> tools, String systemPrompt, int round) {
+                                     List<ToolDescriptor> tools, String systemPrompt, int round,
+                                     AiMessage closingReminder) {
         int maxAttempts = 2;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
@@ -380,6 +390,9 @@ public final class AgentLoop {
                             attempt, maxAttempts, e.getMessage());
                     // Aggressive compaction: keep only the last 2 compaction units
                     compactor.compactAggressively(history);
+                    if (closingReminder != null && !history.contains(closingReminder)) {
+                        history.add(closingReminder);
+                    }
                 } else {
                     log.warn("AgentLoop: AI call failed with a transient network error on attempt {}/{}. "
                             + "Retrying without changing history. Error: {}",
