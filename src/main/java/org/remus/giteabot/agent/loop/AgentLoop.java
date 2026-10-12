@@ -85,6 +85,9 @@ public final class AgentLoop {
                 ctx.issueNumber(), providerTag, resolvedMode, tools.size());
 
         for (int round = 1; round <= budget.maxRounds(); round++) {
+            if (ctx.progressConsumer() != null) {
+                ctx.progressConsumer().accept("Reviewing round " + round + " (waiting for model)");
+            }
             // The closing rounds keep their descriptors: empty the list and every client
             // falls back to its plain-text message shape, which cannot carry the tool
             // exchanges those rounds replay (see the writer's wrap-up round).

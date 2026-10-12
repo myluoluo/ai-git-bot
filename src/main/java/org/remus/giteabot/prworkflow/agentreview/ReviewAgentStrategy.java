@@ -142,6 +142,10 @@ public final class ReviewAgentStrategy implements AgentStrategy {
         for (ToolCall call : turn.toolCalls()) {
             requests.add(toRequest(call));
         }
+        if (ctx.progressConsumer() != null) {
+            ctx.progressConsumer().accept("Inspecting repository (round " + round + "): "
+                    + String.join(", ", requests.stream().map(ImplementationPlan.ToolRequest::getTool).toList()));
+        }
         List<ToolResult> results = executeAll(ctx, requests);
         List<StepDecision.ToolCallResult> packaged = packageResults(requests, results, turn.toolCalls());
         return new StepDecision.ContinueWithToolResults(packaged, null);
@@ -189,6 +193,10 @@ public final class ReviewAgentStrategy implements AgentStrategy {
             contextRounds++;
             log.info("Agentic review (legacy) gathering context for PR #{} (round {}/{})",
                     ctx.issueNumber(), contextRounds, maxContextRounds);
+
+            if (ctx.progressConsumer() != null) {
+                ctx.progressConsumer().accept("Gathering repository context (round " + round + ")");
+            }
 
             // Review context stays on the original revision; all tools pass through the review policy.
             String context = gatherContext(ctx, requestFiles, toolRequests);

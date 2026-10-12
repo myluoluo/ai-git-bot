@@ -26,6 +26,8 @@ public final class AgentRunContext {
     private DiffSummary diffSummary;
     @Setter
     private Consumer<ToolCallRecord> auditToolCallConsumer;
+    @Setter
+    private Consumer<String> progressConsumer;
 
     public AgentRunContext(AgentSession session, String owner, String repo,
                            Long issueNumber, Path workspaceDir, String baseBranch) {
@@ -46,6 +48,7 @@ public final class AgentRunContext {
     public ToolingMode toolingMode() { return toolingMode; }
     public DiffSummary diffSummary() { return diffSummary; }
     public Consumer<ToolCallRecord> auditToolCallConsumer() { return auditToolCallConsumer; }
+    public Consumer<String> progressConsumer() { return progressConsumer; }
 
     public record ToolCallRecord(
             String toolName,
